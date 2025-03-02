@@ -104,6 +104,14 @@ async function run() {
       res.send(result);
     });
 
+    // get a plant by id
+    app.get("/plants/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await plantsCollection.findOne(query);
+      res.send(result);
+    });
+
     // save a plant data in db
     app.post("/plants", verifyToken, async (req, res) => {
       const plant = req.body;
