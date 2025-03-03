@@ -130,11 +130,18 @@ async function run() {
     // manage plant quantity
     app.patch("/plants/quantity/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
-      const { quantityToUpdate } = req.body;
+      const { quantityToUpdate, status } = req.body;
       const filter = { _id: new ObjectId(id) };
       let updateDoc = {
         $inc: { quantity: -quantityToUpdate },
       };
+
+      if (status === "increase") {
+        updateDoc = {
+          $inc: { quantity: quantityToUpdate },
+        };
+      }
+
       const result = await plantsCollection.updateOne(filter, updateDoc);
       res.send(result);
     });
@@ -180,6 +187,19 @@ async function run() {
           },
         ])
         .toArray();
+      res.send(result);
+    });
+
+    // Cancel and order
+    app.delete("/orders/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const order = await ordersCollection.findOne(query);
+      if (order.status === "Delivered")
+        return res
+          .status(409)
+          .send("Cannot cancel once the product is delivered!");
+      const result = await ordersCollection.deleteOne(query);
       res.send(result);
     });
 
