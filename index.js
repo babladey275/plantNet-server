@@ -53,6 +53,13 @@ async function run() {
     const plantsCollection = db.collection("plants");
     const ordersCollection = db.collection("orders");
 
+    // get user role
+    app.get("/users/role/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      res.send({ role: result?.role });
+    });
+
     // save or update a users in db
     app.post("/users/:email", async (req, res) => {
       const email = req.params.email;
@@ -64,7 +71,7 @@ async function run() {
 
       const result = await usersCollection.insertOne({
         ...user,
-        role: "customer",
+        role: "Customer",
         timestamp: Date.now(),
       });
       res.send(result);
