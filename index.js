@@ -53,6 +53,14 @@ async function run() {
     const plantsCollection = db.collection("plants");
     const ordersCollection = db.collection("orders");
 
+    // get all users data
+    app.get("/all-users/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email: { $ne: email } }; //ne=not equal(except admin email)
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
     // get user role
     app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
