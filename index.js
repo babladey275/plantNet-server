@@ -5,6 +5,7 @@ const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const morgan = require("morgan");
+const nodemailer = require("nodemailer");
 
 const port = process.env.PORT || 9000;
 const app = express();
@@ -33,6 +34,42 @@ const verifyToken = async (req, res, next) => {
     }
     req.user = decoded;
     next();
+  });
+};
+
+// send email using nodemailer
+const sendEmail = (emailAddress, emailData) => {
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // true for port 465, false for other ports
+    auth: {
+      user: process.env.NODEMAILER_USER,
+      pass: process.env.NODEMAILER_PASS,
+    },
+  });
+  // verify connection
+  transporter.verify((error, success) => {
+    if (error) {
+      console.log("Error with the transporter:", error);
+    } else {
+      console.log("Transporter is ready:", success);
+    }
+  });
+
+  const mailBody = {
+    from: process.env.NODEMAILER_USER, // sender address
+    to: emailAddress, // list of receivers
+    subject: emailData?.subject, // Subject line
+    text: emailData?.message, // plain text body
+    html: `<p>${emailData?.message}</p>`, // html body
+  };
+  transporter.sendMail(mailBody, (error, info) => {
+    if (error) {
+      console.log("Error sending email:", error);
+    } else {
+      console.log("Email Sent:", info?.response);
+    }
   });
 };
 
@@ -224,6 +261,20 @@ async function run() {
     app.post("/order", verifyToken, async (req, res) => {
       const orderInfo = req.body;
       const result = await ordersCollection.insertOne(orderInfo);
+      // send email
+      if (result?.insertedId) {
+        // To Customer
+        sendEmail(orderInfo?.customer?.email, {
+          subject: "Order Successful!",
+          message: `You've placed an order successfully. Transaction Id: ${result?.insertedId}`,
+        });
+
+        // To Seller
+        sendEmail(orderInfo?.seller, {
+          subject: "Hurray! You have an order to process.",
+          message: `Get the plants ready for ${orderInfo?.seller}`,
+        });
+      }
       res.send(result);
     });
 
