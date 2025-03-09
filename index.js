@@ -413,6 +413,71 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/admin-stat", verifyToken, verifyAdmin, async (req, res) => {
+      const totalUser = await usersCollection.estimatedDocumentCount();
+      const totalPlants = await plantsCollection.estimatedDocumentCount();
+      // const allOrder = await ordersCollection.find().toArray();
+      // const totalOrders = allOrder.length;
+      // const totalPrice = allOrder.reduce((sum, order)=> sum + order.price, 0)
+
+      // const myData = {
+      //   date: "11/01/2025",
+      //   quantity: 4000,
+      //   price: 2400,
+      //   order: 2400,
+      // };
+
+      // generate chart data
+      const chartData = await ordersCollection
+        .aggregate([
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: { $toDate: "$_id" },
+                },
+              },
+              quantity: {
+                $sum: "$quantity",
+              },
+              price: { $sum: "$price" },
+              order: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              date: "$_id",
+              quantity: 1,
+              order: 1,
+              price: 1,
+            },
+          },
+        ])
+        .next();
+
+      // get total revenue, total order
+      const orderDetails = await ordersCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: "$price" },
+              totalOrder: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+            },
+          },
+        ])
+        .next();
+
+      res.send({ totalPlants, totalUser, ...orderDetails, chartData });
+    });
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
