@@ -6,6 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const morgan = require("morgan");
 const nodemailer = require("nodemailer");
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY);
 
 const port = process.env.PORT || 9000;
 const app = express();
@@ -282,14 +283,15 @@ async function run() {
     app.patch("/plants/quantity/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const { quantityToUpdate, status } = req.body;
+      const quantity = Number(quantityToUpdate);
       const filter = { _id: new ObjectId(id) };
       let updateDoc = {
-        $inc: { quantity: -quantityToUpdate },
+        $inc: { quantity: -quantity },
       };
 
       if (status === "increase") {
         updateDoc = {
-          $inc: { quantity: quantityToUpdate },
+          $inc: { quantity: quantity },
         };
       }
 
@@ -413,6 +415,7 @@ async function run() {
       res.send(result);
     });
 
+    // admin stat
     app.get("/admin-stat", verifyToken, verifyAdmin, async (req, res) => {
       const totalUser = await usersCollection.estimatedDocumentCount();
       const totalPlants = await plantsCollection.estimatedDocumentCount();
@@ -454,8 +457,13 @@ async function run() {
               price: 1,
             },
           },
+          {
+            $sort: {
+              date: -1,
+            },
+          },
         ])
-        .next();
+        .toArray();
 
       // get total revenue, total order
       const orderDetails = await ordersCollection
@@ -476,6 +484,30 @@ async function run() {
         .next();
 
       res.send({ totalPlants, totalUser, ...orderDetails, chartData });
+    });
+
+    // create payment intent
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { quantity, plantId } = req.body;
+      const plant = await plantsCollection.findOne({
+        _id: new ObjectId(plantId),
+      });
+      if (!plant) {
+        return res.status(400).send({ message: "Plant Not Found" });
+      }
+      const totalPrice = quantity * plant.price * 100; //total price in cent
+      if (totalPrice === 0)
+        return res.status(400).send({ message: "Total price cannot be zero" });
+
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: totalPrice,
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.send({ clientSecret: client_secret });
     });
 
     // Send a ping to confirm a successful connection
