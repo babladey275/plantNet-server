@@ -258,6 +258,25 @@ async function run() {
       res.send(result);
     });
 
+    // update plants by seller
+    app.patch("/plants/:id", verifyToken, verifySeller, async (req, res) => {
+      const id = req.params.id;
+      const { name, category, description, price, quantity, image } = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          name: name,
+          category: category,
+          description: description,
+          price: price,
+          quantity: quantity,
+          image: image,
+        },
+      };
+      const result = await plantsCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
     // save order data in db
     app.post("/order", verifyToken, async (req, res) => {
       const orderInfo = req.body;
