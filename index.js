@@ -125,6 +125,17 @@ async function run() {
       res.send(result);
     });
 
+    // user by email
+    app.get("/users/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.user.email) {
+        return res.status(403).send({ message: "Forbidden access" });
+      }
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+
     // get user role
     app.get("/users/role/:email", async (req, res) => {
       const email = req.params.email;
@@ -146,6 +157,22 @@ async function run() {
         role: "Customer",
         timestamp: Date.now(),
       });
+      res.send(result);
+    });
+
+    // update user profile
+    app.patch("/users/:id", verifyToken, async (req, res) => {
+      const user = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          name: user.name,
+          email: user.email,
+          image: user.image,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
 
